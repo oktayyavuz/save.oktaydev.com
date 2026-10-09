@@ -17,7 +17,7 @@ from ..bot import bot_manager
 from ..i18n import T
 from ..i18n import t
 from ..ratelimit import limiter
-from ..web import render, request_lang
+from ..web import client_ip, render, request_lang
 
 router = APIRouter()
 
@@ -39,7 +39,7 @@ def _thumb_token(url: str) -> str:
 
 
 def _client_ip(request: Request) -> str:
-    return request.client.host if request.client else "unknown"
+    return client_ip(request)
 
 
 def _error(request: Request, code: str, status: int = 400) -> JSONResponse:
@@ -157,4 +157,4 @@ async def download_file(request: Request, job_id: str, index: int):
     ascii_name = f.name.encode("ascii", "ignore").decode() or f"download{f.path.suffix}"
     ascii_name = ascii_name.replace('"', "")
     disposition = f"attachment; filename=\"{ascii_name}\"; filename*=UTF-8''{quote(f.name)}"
-    return FileResponse(f.path, headers={"Content-Disposition": disposition})
+    return FileResponse(f.path, headers={"Content-Disposition": disposition, "Cache-Control": "private, no-store"})

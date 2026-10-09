@@ -3,6 +3,12 @@
   ----------------------------
   Run from an *Administrator* PowerShell in the project folder:
 
+      # Cloudflare Tunnel (recommended): app listens on http://127.0.0.1:8000
+      powershell -ExecutionPolicy Bypass -File windows\install.ps1 -Tunnel
+      # ...and also install cloudflared as a service with the token from the Cloudflare dashboard
+      powershell -ExecutionPolicy Bypass -File windows\install.ps1 -TunnelToken eyJh...
+
+      # Without Cloudflare: Caddy with automatic HTTPS (DNS A record -> this server)
       powershell -ExecutionPolicy Bypass -File windows\install.ps1 -Domain save.oktaydev.com
 
   What it does:
@@ -10,18 +16,23 @@
     2. Downloads ffmpeg + deno into tools\ (needed for merging / MP3 / YouTube)
     3. Creates .env with a random SECRET_KEY
     4. Registers the app as a Windows service (auto start, auto restart)
-    5. With -Domain: installs Caddy as a second service for automatic HTTPS
-       (the domain's DNS A record must point to this server, ports 80/443 open)
-    Without -Domain the site is served over plain HTTP on -Port (default 80).
+    5. -Tunnel / -TunnelToken: no ports are opened; Cloudflare Tunnel points to http://127.0.0.1:8000
+       -Domain: installs Caddy as a second service for automatic HTTPS (ports 80/443)
+       none of them: plain HTTP on -Port (default 80)
 
   Re-running the script is safe; it updates what is already there.
 #>
 param(
+    [switch]$Tunnel,
+    [string]$TunnelToken = "",
     [string]$Domain = "",
     [int]$Port = 80,
     [string]$ServiceName = "SaveApp",
     [switch]$SkipPython
 )
+
+if ($TunnelToken) { $Tunnel = $true }
+if ($Tunnel -and $Domain) { throw "Use either -Tunnel or -Domain, not both." }
 
 $ErrorActionPreference = "Stop"
 $ProgressPreference = "SilentlyContinue"
@@ -117,7 +128,10 @@ if (-not (Test-Path $envFile)) {
     $bytes = New-Object byte[] 48
     [Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($bytes)
     $secret = [Convert]::ToBase64String($bytes).Replace("+", "-").Replace("/", "_").TrimEnd("=")
-    if ($Domain) {
+    $cf = "BEHIND_CLOUDFLARE=0"
+    if ($Tunnel) {
+        $hostLine = "HOST=127.0.0.1"; $portLine = "PORT=8000"; $secure = "SECURE_COOKIES=1"; $cf = "BEHIND_CLOUDFLARE=1"
+    } elseif ($Domain) {
         $hostLine = "HOST=127.0.0.1"; $portLine = "PORT=8000"; $secure = "SECURE_COOKIES=1"
     } else {
         $hostLine = "HOST=0.0.0.0"; $portLine = "PORT=$Port"; $secure = "SECURE_COOKIES=0"
@@ -128,6 +142,7 @@ if (-not (Test-Path $envFile)) {
         $hostLine,
         $portLine,
         $secure,
+        $cf,
         "LOG_LEVEL=INFO"
     ) | Set-Content -Path $envFile -Encoding ASCII
     Ok "created .env (keep SECRET_KEY safe: it encrypts the saved tokens/cookies)"
@@ -186,7 +201,23 @@ Step "Windows service: $ServiceName"
 Install-WinSWService $ServiceName "Save video downloader" "Save web site + Telegram bot" `
     $VenvPython "`"$(Join-Path $Root 'run.py')`"" @{ RUNNING_AS_SERVICE = "1"; PYTHONUNBUFFERED = "1"; PYTHONIOENCODING = "utf-8" }
 
-if ($Domain) {
+$ports = @()
+if ($Tunnel) {
+    if ($TunnelToken) {
+        Step "cloudflared (Cloudflare Tunnel)"
+        $cloudflared = Join-Path $Tools "cloudflared.exe"
+        if (-not (Test-Path $cloudflared)) {
+            Download "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-windows-amd64.exe" $cloudflared
+        }
+        if (Get-Service -Name "Cloudflared" -ErrorAction SilentlyContinue) {
+            & $cloudflared service uninstall | Out-Null
+            Start-Sleep 2
+        }
+        & $cloudflared service install $TunnelToken
+        Ok "cloudflared service installed"
+    }
+    Ok "Cloudflare Tunnel -> Public hostname service: HTTP  localhost:8000"
+} elseif ($Domain) {
     Step "Caddy (automatic HTTPS for $Domain)"
     $caddyExe = Join-Path $Tools "caddy.exe"
     if (-not (Test-Path $caddyExe)) {
@@ -214,7 +245,7 @@ $Domain {
     $ports = @($Port)
 }
 
-Step "Firewall"
+if ($ports.Count -gt 0) { Step "Firewall" }
 foreach ($p in $ports) {
     $name = "Save HTTP $p"
     if (-not (Get-NetFirewallRule -DisplayName $name -ErrorAction SilentlyContinue)) {
@@ -224,6 +255,6 @@ foreach ($p in $ports) {
 }
 
 Write-Host ""
-if ($Domain) { $url = "https://$Domain" } elseif ($Port -eq 80) { $url = "http://<server-ip>" } else { $url = "http://<server-ip>:$Port" }
+if ($Tunnel) { $url = "https://<your-tunnel-hostname>" } elseif ($Domain) { $url = "https://$Domain" } elseif ($Port -eq 80) { $url = "http://<server-ip>" } else { $url = "http://<server-ip>:$Port" }
 Write-Host "Done! Open $url/admin to create the admin account." -ForegroundColor Green
 Write-Host "Logs: $Logs"

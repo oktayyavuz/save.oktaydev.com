@@ -40,6 +40,10 @@ for _p in (TOOLS_DIR / "ffmpeg" / "bin", TOOLS_DIR):
 
 HOST = os.environ.get("HOST", "127.0.0.1")
 PORT = int(os.environ.get("PORT", "8000"))
+# Behind Cloudflare (Tunnel or proxy): take the visitor IP from CF-Connecting-IP.
+# Only safe when the app is not reachable directly (HOST=127.0.0.1 with cloudflared).
+BEHIND_CLOUDFLARE = os.environ.get("BEHIND_CLOUDFLARE", "0") == "1"
+
 # Set by the Windows service wrapper; enables the "restart" button in the panel.
 RUNNING_AS_SERVICE = os.environ.get("RUNNING_AS_SERVICE", "0") == "1"
 

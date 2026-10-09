@@ -37,6 +37,14 @@ templates.env.filters["duration"] = _duration
 templates.env.globals["static_version"] = STATIC_VERSION
 
 
+def client_ip(request: Request) -> str:
+    if config.BEHIND_CLOUDFLARE:
+        cf = request.headers.get("cf-connecting-ip", "").strip()
+        if cf:
+            return cf
+    return request.client.host if request.client else "unknown"
+
+
 def request_lang(request: Request) -> str:
     q = request.query_params.get("lang")
     if q in ("tr", "en"):

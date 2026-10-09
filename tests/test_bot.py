@@ -170,3 +170,45 @@ def test_bot_large_file_sends_link(media_url, monkeypatch):
             await jobs.manager.stop()
 
     asyncio.run(run())
+
+
+class FakeUploader:
+    running = True
+    error = ""
+
+    def __init__(self):
+        self.sent = []
+
+    async def send(self, chat_id, path, kind, caption, **kw):
+        if kw.get("progress"):
+            await kw["progress"](50, 100)
+        self.sent.append((path.name, kind, kw.get("duration"), kw.get("width"), kw.get("thumb") is not None))
+
+
+def test_bot_large_file_goes_over_mtproto(media_url, monkeypatch):
+    import app.bot as botmod
+
+    async def run():
+        await jobs.manager.start()
+        try:
+            log: list = []
+            fake = FakeUploader()
+            monkeypatch.setattr(botmod, "uploader", fake)
+            monkeypatch.setattr(botmod, "CLOUD_LIMIT", 10)  # every file counts as "large"
+            bm = BotManager()
+            assert bm.upload_limit == botmod.MAX_UPLOAD
+            ctx = SimpleNamespace(bot=FakeBot(log))
+            await bm.on_message(_update(log, text=media_url), ctx)
+            token = next(iter(bm._pending))
+            card = FakeMessage(log)
+            await bm.on_callback(_update(log, data=f"d:{token}:best", message=card), ctx)
+            assert len(fake.sent) == 1, log
+            name, kind, duration, width, has_thumb = fake.sent[0]
+            assert name == "bot.mp4" and kind == "video"
+            assert duration and width == 320 and has_thumb
+            assert not [e for e in log if e[0] in ("send_video", "send_message")]
+            assert card.text.endswith("✅")
+        finally:
+            await jobs.manager.stop()
+
+    asyncio.run(run())

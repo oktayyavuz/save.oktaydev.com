@@ -16,7 +16,7 @@ from fastapi.responses import JSONResponse, RedirectResponse
 from .. import config, db, downloader, jobs, security, settings
 from ..bot import bot_manager
 from ..ratelimit import limiter
-from ..web import render
+from ..web import client_ip, render
 
 router = APIRouter(prefix="/admin")
 
@@ -73,7 +73,7 @@ def _redirect(url: str) -> RedirectResponse:
 
 
 def _ip(request: Request) -> str:
-    return request.client.host if request.client else "unknown"
+    return client_ip(request)
 
 
 # --------------------------------------------------------------------------- auth
@@ -256,7 +256,7 @@ async def user_ban(request: Request, user_id: int):
 
 # --------------------------------------------------------------------------- settings
 
-RESTART_KEYS = {"telegram_enabled", "telegram_bot_token", "telegram_api_base"}
+RESTART_KEYS = {"telegram_enabled", "telegram_bot_token", "telegram_api_base", "telegram_api_id", "telegram_api_hash"}
 
 
 @router.get("/settings")

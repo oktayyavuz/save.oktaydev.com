@@ -15,7 +15,11 @@
     {% if bot.running %}<span class="ok-text">● Çalışıyor — @{{ bot.username }}</span>
     {% elif bot.error %}<span class="err-text">● Hata: {{ bot.error }}</span>
     {% else %}<span class="muted">● Kapalı</span>{% endif %}
-    <br><span class="muted small">Dosya yükleme limiti: {{ bot.upload_limit | size }}. Daha büyük dosyalar için kullanıcıya site üzerinden indirme linki gönderilir (Genel → Genel adres dolu olmalı).</span>
+    <br><strong>Büyük dosya gönderimi:</strong>
+    {% if bot.mtproto %}<span class="ok-text">● Açık — dosyalar 2 GB'a kadar doğrudan sohbete gönderilir</span>
+    {% elif bot.mtproto_error %}<span class="err-text">● API ID/Hash hatası: {{ bot.mtproto_error }}</span>
+    {% else %}<span class="muted">● Kapalı — API ID ve API Hash girilmezse bot en fazla 50 MB gönderebilir</span>{% endif %}
+    <br><span class="muted small">Gönderim limiti: {{ bot.upload_limit | size }}. Bunu aşan dosyalar için kullanıcıya site üzerinden indirme linki gönderilir (Genel → Genel adres dolu olmalı).</span>
   </div>
 </div>
 {% elif tab == 'credentials' %}

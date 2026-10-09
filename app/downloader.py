@@ -573,6 +573,59 @@ def _collect_files(info: dict[str, Any] | None, target_dir: Path, preset: Preset
     return files
 
 
+def probe(path: Path) -> dict[str, Any]:
+    """Duration / size of a media file via ffprobe (empty dict if unavailable)."""
+    import json
+    import shutil
+    import subprocess
+
+    exe = shutil.which("ffprobe")
+    if not exe:
+        return {}
+    try:
+        out = subprocess.run(
+            [exe, "-v", "error", "-select_streams", "v:0", "-show_entries", "stream=width,height:format=duration",
+             "-of", "json", str(path)],
+            capture_output=True, text=True, timeout=30,
+        )
+        data = json.loads(out.stdout or "{}")
+    except (OSError, subprocess.SubprocessError, ValueError):
+        return {}
+    stream = (data.get("streams") or [{}])[0]
+    result: dict[str, Any] = {}
+    try:
+        result["duration"] = float((data.get("format") or {}).get("duration") or 0) or None
+    except ValueError:
+        pass
+    if stream.get("width"):
+        result["width"], result["height"] = stream["width"], stream.get("height")
+    return result
+
+
+def make_thumbnail(path: Path) -> Path | None:
+    """JPEG preview (max 320px) for Telegram; None if ffmpeg fails."""
+    import shutil
+    import subprocess
+
+    exe = shutil.which("ffmpeg")
+    if not exe:
+        return None
+    target = path.with_name(f".thumb-{path.stem[:40]}.jpg")
+    for seek in ("1", "0"):
+        try:
+            subprocess.run(
+                [exe, "-v", "error", "-y", "-ss", seek, "-i", str(path), "-frames:v", "1",
+                 "-vf", "scale='min(320,iw)':'min(320,ih)':force_original_aspect_ratio=decrease", "-q:v", "5",
+                 str(target)],
+                capture_output=True, timeout=60,
+            )
+        except (OSError, subprocess.SubprocessError):
+            return None
+        if target.exists() and target.stat().st_size > 0:
+            return target
+    return None
+
+
 def new_id() -> str:
     return secrets.token_urlsafe(12)
 

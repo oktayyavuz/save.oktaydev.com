@@ -35,6 +35,7 @@ from telegram.ext import (
 
 from . import config, db, downloader, jobs, settings, urlguard
 from .i18n import human_size, pick_lang, t
+from .mtproto import MAX_UPLOAD, uploader
 from .ratelimit import limiter
 
 log = logging.getLogger("save.bot")
@@ -93,7 +94,11 @@ class BotManager:
 
     @property
     def upload_limit(self) -> int:
-        return LOCAL_LIMIT if settings.get("telegram_api_base") else CLOUD_LIMIT
+        if settings.get("telegram_api_base"):
+            return LOCAL_LIMIT
+        if uploader.running:
+            return MAX_UPLOAD
+        return CLOUD_LIMIT
 
     async def start(self) -> None:
         async with self._lock:
@@ -160,8 +165,11 @@ class BotManager:
         self.app = app
         self.started_at = time.time()
         log.info("Telegram bot @%s started", self.username)
+        if not settings.get("telegram_api_base"):
+            await uploader.start(token, settings.get("telegram_api_id"), settings.get("telegram_api_hash"))
 
     async def _stop(self) -> None:
+        await uploader.stop()
         app, self.app = self.app, None
         self.started_at = None
         if not app:
@@ -182,6 +190,8 @@ class BotManager:
             "error": self.error,
             "started_at": self.started_at,
             "upload_limit": self.upload_limit,
+            "mtproto": uploader.running,
+            "mtproto_error": uploader.error,
         }
 
     # ------------------------------------------------------------------ helpers
@@ -450,10 +460,10 @@ class BotManager:
         sent_any = False
         for index, f in enumerate(job.files):
             try:
-                ok = await self._send_file(context, chat_id, job, index, f, lang, card.message_id,
-                                           cache_key if len(job.files) == 1 else None)
+                ok = await self._send_file(context, chat_id, job, index, f, lang, card,
+                                           cache_key if len(job.files) == 1 else None, header)
                 sent_any = sent_any or ok
-            except TelegramError as exc:
+            except Exception as exc:  # noqa: BLE001 - Bot API or MTProto upload failure
                 log.warning("upload failed: %s", exc)
                 await context.bot.send_message(chat_id, "❌ " + t("err.generic", lang))
         # Restore the buttons so another format can be picked from the same card.
@@ -479,7 +489,9 @@ class BotManager:
         return f"📥 {html.escape(bot)}"
 
     async def _send_file(self, context: ContextTypes.DEFAULT_TYPE, chat_id: int, job: jobs.Job, index: int,
-                         f: downloader.DownloadedFile, lang: str, reply_to: int, cache_key: str | None) -> bool:
+                         f: downloader.DownloadedFile, lang: str, card: Message, cache_key: str | None,
+                         header: str = "") -> bool:
+        reply_to = card.message_id
         if f.size > self.upload_limit:
             base = (settings.get("public_base_url") or "").rstrip("/")
             if base:
@@ -496,6 +508,35 @@ class BotManager:
             return False
 
         caption = self._caption()
+        is_video = f.kind == "video" and f.path.suffix.lower() in (".mp4", ".mov", ".m4v")
+        thumb = None
+        if is_video:
+            if not (f.duration and f.width and f.height):
+                meta = await asyncio.to_thread(downloader.probe, f.path)
+                f.duration = f.duration or meta.get("duration")
+                f.width = f.width or meta.get("width")
+                f.height = f.height or meta.get("height")
+            thumb = await asyncio.to_thread(downloader.make_thumbnail, f.path)
+
+        if f.size > CLOUD_LIMIT and uploader.running and not settings.get("telegram_api_base"):
+            # Too big for the Bot API: upload the file itself over MTProto (up to 2 GB).
+            last = {"t": 0.0}
+
+            async def progress(sent: int, total: int) -> None:
+                now = time.monotonic()
+                if now - last["t"] < 4 or not total:
+                    return
+                last["t"] = now
+                await self._edit(card, header + t("bot.uploading", lang) + "\n" + _progress_bar(sent / total * 100))
+
+            await context.bot.send_chat_action(chat_id, ChatAction.UPLOAD_VIDEO if is_video else ChatAction.UPLOAD_DOCUMENT)
+            await uploader.send(
+                chat_id, f.path, "video" if is_video else f.kind, caption, reply_to=reply_to,
+                duration=f.duration, width=f.width, height=f.height, title=f.title, performer=f.uploader,
+                thumb=thumb, progress=progress,
+            )
+            return True
+
         common = {
             "caption": caption,
             "parse_mode": ParseMode.HTML,
@@ -503,11 +544,12 @@ class BotManager:
             "filename": f.name,
         }
         with f.path.open("rb") as fh:
-            if f.kind == "video" and f.path.suffix.lower() in (".mp4", ".mov", ".m4v"):
+            if is_video:
                 await context.bot.send_chat_action(chat_id, ChatAction.UPLOAD_VIDEO)
                 msg = await context.bot.send_video(
                     chat_id, fh, duration=int(f.duration) if f.duration else None,
-                    width=f.width, height=f.height, supports_streaming=True, **common,
+                    width=f.width, height=f.height, supports_streaming=True,
+                    thumbnail=thumb.read_bytes() if thumb else None, **common,
                 )
                 file_id, kind = (msg.video.file_id if msg.video else msg.document.file_id), "video"
             elif f.kind == "audio":

@@ -117,3 +117,15 @@ def test_download_end_to_end(client, media_server, monkeypatch, preset, ext):
 def test_expired_file_link(client):
     r = client.get("/d/doesnotexist/0")
     assert r.status_code == 404
+
+
+def test_cloudflare_client_ip(monkeypatch):
+    from starlette.requests import Request
+
+    from app import web
+
+    scope = {"type": "http", "headers": [(b"cf-connecting-ip", b"203.0.113.9")], "client": ("127.0.0.1", 5000)}
+    monkeypatch.setattr(config, "BEHIND_CLOUDFLARE", False)
+    assert web.client_ip(Request(scope)) == "127.0.0.1"
+    monkeypatch.setattr(config, "BEHIND_CLOUDFLARE", True)
+    assert web.client_ip(Request(scope)) == "203.0.113.9"
