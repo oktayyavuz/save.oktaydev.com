@@ -420,6 +420,7 @@ async def system_page(request: Request):
         "service": config.RUNNING_AS_SERVICE,
         "js": await asyncio.to_thread(downloader.js_status),
     }
+    info["js_ok"] = any("(uygun)" in line for line in info["js"])
     return _page(request, "admin/system.html", {
         "info": info, "update_log": _logs.pop("update", None), "diag_log": _logs.get("diag"),
         "diag_url": _logs.get("diag_url", "https://www.youtube.com/watch?v=jNQXAC9IVRw"),

@@ -139,4 +139,4 @@ def test_system_diagnose(client, media_server, monkeypatch):
     r = client.post("/admin/system/diagnose", data={"csrf": token, "url": f"{media_server}/clip.mp4"})
     assert r.status_code == 200
     assert "OK: clip" in r.text and "[debug] params" not in r.text
-    assert "yt-dlp JS çözücü" in r.text
+    assert "JS runtime (YouTube için)" in r.text

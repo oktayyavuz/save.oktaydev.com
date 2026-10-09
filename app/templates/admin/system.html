@@ -30,8 +30,7 @@
     <header class="card-head"><h2>Bileşenler</h2></header>
     <ul class="kv">
       <li><span>ffmpeg</span><span class="{{ 'ok-text' if info.ffmpeg else 'err-text' }}">{{ (info.ffmpeg[:60]) if info.ffmpeg else 'Bulunamadı — birleştirme ve MP3 çalışmaz' }}</span></li>
-      <li><span>Deno (JS runtime)</span><span class="{{ 'ok-text' if info.deno else 'err-text' }}">{{ info.deno if info.deno else 'Bulunamadı — YouTube için gerekli' }}</span></li>
-      <li><span>yt-dlp JS çözücü</span><span>{% for line in info.js %}{{ line }}<br>{% endfor %}</span></li>
+      <li><span>JS runtime (YouTube için)</span><span class="{{ 'ok-text' if info.js_ok else 'err-text' }}">{% for line in info.js %}{{ line }}<br>{% endfor %}{% if not info.js_ok %}Deno veya Node.js bulunamadı — YouTube çalışmaz{% endif %}</span></li>
       <li><span>Telegram bot</span><span class="{{ 'ok-text' if bot.running else 'muted' }}">{{ ('@' ~ bot.username) if bot.running else (bot.error or 'Kapalı') }}</span></li>
       <li><span>Aktif iş</span><span>{{ active_jobs }}</span></li>
     </ul>
