@@ -74,7 +74,10 @@ Gereken: Windows Server 2016+ / Windows 10+, yönetici yetkisi. (Python, ffmpeg 
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File windows\update.ps1   # git pull + paket/yt-dlp güncelle + servisi yeniden başlat
-Restart-Service SaveApp                                         # sadece yeniden başlat
+powershell -ExecutionPolicy Bypass -File windows\service.ps1 stop      # durdur
+powershell -ExecutionPolicy Bypass -File windows\service.ps1 start     # başlat
+powershell -ExecutionPolicy Bypass -File windows\service.ps1 restart   # yeniden başlat
+powershell -ExecutionPolicy Bypass -File windows\service.ps1 disable   # durdur + Windows açılışında başlamasın
 Get-Content C:\save\logs\SaveApp.err.log -Tail 50 -Wait         # canlı log (uygulama logları)
 powershell -ExecutionPolicy Bypass -File windows\uninstall.ps1  # servisleri kaldır (data\ kalır)
 ```
@@ -82,7 +85,10 @@ powershell -ExecutionPolicy Bypass -File windows\uninstall.ps1  # servisleri kal
 Siteler sık değiştiği için indirmeler bozulursa ilk iş **yt-dlp'yi güncellemek**tir
 (admin paneli → Sistem → "yt-dlp'yi güncelle" → "Uygulamayı yeniden başlat" veya `update.ps1`).
 
-Elle/ön planda çalıştırmak için: `windows\start.bat`.
+Elle/ön planda çalıştırmak için: `windows\start.bat` (kapatmak için pencerede **Ctrl+C**).
+Servis çalışırken `start.bat`'ı açma; ikisi aynı portu (8000) kullanır.
+
+Bir site indirmiyorsa: admin → **Sistem → İndirme testi** bağlantıyı ayrıntılı logla dener; buradaki log sorunu gösterir.
 
 ## Instagram / X / YouTube için çerezler
 

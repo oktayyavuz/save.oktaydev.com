@@ -129,3 +129,14 @@ def test_cloudflare_client_ip(monkeypatch):
     assert web.client_ip(Request(scope)) == "127.0.0.1"
     monkeypatch.setattr(config, "BEHIND_CLOUDFLARE", True)
     assert web.client_ip(Request(scope)) == "203.0.113.9"
+
+
+def test_system_diagnose(client, media_server, monkeypatch):
+    monkeypatch.setattr(config, "ALLOW_PRIVATE_URLS", True)
+    token = _csrf(client, "/admin/login")
+    client.post("/admin/login", data={"csrf": token, "username": "admin", "password": "longpassword"})
+    token = _csrf(client, "/admin/system")
+    r = client.post("/admin/system/diagnose", data={"csrf": token, "url": f"{media_server}/clip.mp4"})
+    assert r.status_code == 200
+    assert "OK: clip" in r.text and "[debug] params" not in r.text
+    assert "yt-dlp JS çözücü" in r.text

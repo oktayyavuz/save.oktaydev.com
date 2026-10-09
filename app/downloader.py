@@ -10,6 +10,7 @@ import logging
 import os
 import re
 import secrets
+import shutil
 import tempfile
 import threading
 import time
@@ -94,7 +95,7 @@ class DownloadFailed(Exception):
 
 _ERROR_PATTERNS: list[tuple[str, str]] = [
     (r"unsupported url", "unsupported"),
-    (r"(sign in to confirm|confirm you.re not a bot|login required|log in|logged-in|rate-limit reached|requires authentication|cookies)", "login_required"),
+    (r"(sign in to confirm|confirm you.re not a bot|page needs to be reloaded|login required|log in|logged-in|rate-limit reached|requires authentication|cookies)", "login_required"),
     (r"(private video|this video is private|private account|is private)", "private"),
     (r"(not available in your country|geo.?restrict|blocked it in your country)", "geo"),
     (r"(age.?restricted|confirm your age|inappropriate for some users)", "age"),
@@ -169,6 +170,20 @@ def _cookie_file(url: str, directory: Path | None) -> Iterator[str | None]:
             os.unlink(path)
 
 
+def js_runtimes() -> dict[str, dict[str, str]]:
+    """JavaScript runtimes for YouTube's signature/"n" challenges.
+
+    Paths are resolved explicitly (tools\\deno.exe is on PATH via config) so the
+    lookup doesn't depend on the service account's environment.
+    """
+    runtimes: dict[str, dict[str, str]] = {}
+    for name in ("deno", "node", "bun"):
+        exe = shutil.which(name)
+        if exe:
+            runtimes[name] = {"path": exe}
+    return runtimes or {"deno": {}}
+
+
 def _base_options(logger: _Logger) -> dict[str, Any]:
     s = settings.all_settings()
     opts: dict[str, Any] = {
@@ -187,6 +202,10 @@ def _base_options(logger: _Logger) -> dict[str, Any]:
         "trim_file_name": 120,
         "check_formats": False,
         "color": {"stdout": "no_color", "stderr": "no_color"},
+        "js_runtimes": js_runtimes(),
+        # If the bundled yt-dlp-ejs solver doesn't match, fetch the right one from GitHub.
+        "remote_components": ["ejs:github"],
+        "cachedir": str(config.DATA_DIR / "cache"),
     }
     if s["proxy"]:
         opts["proxy"] = s["proxy"]
@@ -626,8 +645,73 @@ def make_thumbnail(path: Path) -> Path | None:
     return None
 
 
+class _CaptureLogger:
+    def __init__(self) -> None:
+        self.lines: list[str] = []
+
+    def debug(self, msg: str) -> None:
+        self.lines.append(msg)
+
+    info = debug
+
+    def warning(self, msg: str) -> None:
+        self.lines.append("WARNING: " + msg)
+
+    def error(self, msg: str) -> None:
+        self.lines.append(msg if msg.startswith("ERROR") else "ERROR: " + msg)
+
+
+def diagnose(url: str) -> str:
+    """Run a verbose metadata extraction and return the yt-dlp log (admin panel)."""
+    logger = _CaptureLogger()
+    opts = _base_options(logger)  # type: ignore[arg-type]
+    opts.update({"verbose": True, "quiet": False, "skip_download": True})
+    result = "?"
+    with _cookie_file(url, None) as cookie_path:
+        if cookie_path:
+            opts["cookiefile"] = cookie_path
+        try:
+            with yt_dlp.YoutubeDL(opts) as ydl:
+                info = ydl.extract_info(url, download=False)
+            formats = (info.get("formats") or []) if info else []
+            heights = sorted({f.get("height") for f in formats if f.get("height")})
+            result = f"OK: {info.get('title') if info else '?'} — {len(formats)} format, çözünürlükler: {heights}"
+        except Exception as exc:  # noqa: BLE001 - diagnostics must never raise
+            result = f"HATA: {_clean_message(str(exc))}"
+    # Drop noise and the params dump (it would show the proxy password).
+    lines = [line for line in logger.lines if not line.startswith(("[debug] Loaded", "[debug] params"))]
+    body = "\n".join(lines)
+    if len(body) > 15000:
+        body = body[:4000] + "\n…\n" + body[-10000:]
+    return f"{result}\n\n{body}"
+
+
 def new_id() -> str:
     return secrets.token_urlsafe(12)
+
+
+def js_status() -> list[str]:
+    """What yt-dlp itself sees: JS runtimes and the EJS challenge solver."""
+    out: list[str] = []
+    try:
+        from yt_dlp.utils import _jsruntime
+
+        classes = {"deno": _jsruntime.DenoJsRuntime, "node": _jsruntime.NodeJsRuntime, "bun": _jsruntime.BunJsRuntime}
+        for name, cfg in js_runtimes().items():
+            info = classes[name](path=cfg.get("path")).info
+            if info:
+                out.append(f"{info.name} {info.version} ({'uygun' if info.supported else 'SÜRÜM ESKİ'}) — {info.path}")
+            else:
+                out.append(f"{name}: bulunamadı")
+    except Exception as exc:  # noqa: BLE001 - private yt-dlp API may change
+        out.append(f"kontrol edilemedi: {exc}")
+    try:
+        import yt_dlp_ejs
+
+        out.append(f"yt-dlp-ejs {getattr(yt_dlp_ejs, 'version', getattr(yt_dlp_ejs, '__version__', '?'))}")
+    except ImportError:
+        out.append("yt-dlp-ejs kurulu değil (GitHub'dan indirilecek)")
+    return out
 
 
 def ytdlp_version() -> str:

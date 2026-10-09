@@ -31,6 +31,7 @@
     <ul class="kv">
       <li><span>ffmpeg</span><span class="{{ 'ok-text' if info.ffmpeg else 'err-text' }}">{{ (info.ffmpeg[:60]) if info.ffmpeg else 'Bulunamadı — birleştirme ve MP3 çalışmaz' }}</span></li>
       <li><span>Deno (JS runtime)</span><span class="{{ 'ok-text' if info.deno else 'err-text' }}">{{ info.deno if info.deno else 'Bulunamadı — YouTube için gerekli' }}</span></li>
+      <li><span>yt-dlp JS çözücü</span><span>{% for line in info.js %}{{ line }}<br>{% endfor %}</span></li>
       <li><span>Telegram bot</span><span class="{{ 'ok-text' if bot.running else 'muted' }}">{{ ('@' ~ bot.username) if bot.running else (bot.error or 'Kapalı') }}</span></li>
       <li><span>Aktif iş</span><span>{{ active_jobs }}</span></li>
     </ul>
@@ -58,4 +59,15 @@
     {% if update_log %}<pre class="log">{{ update_log }}</pre>{% endif %}
   </section>
 </div>
+
+<section class="card" id="diag">
+  <header class="card-head"><h2>İndirme testi</h2></header>
+  <p class="muted small">Bir bağlantıyı ayrıntılı logla analiz eder (indirme yapmaz). Bir site indirmiyorsa burada çıkan logu kontrol et.</p>
+  <form method="post" action="/admin/system/diagnose" class="inline-form">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <input type="text" name="url" value="{{ diag_url }}" style="flex:1; min-width: 240px">
+    <button class="btn btn-primary btn-sm" type="submit">Test et</button>
+  </form>
+  {% if diag_log %}<pre class="log" style="max-height: 480px">{{ diag_log }}</pre>{% endif %}
+</section>
 {% endblock %}

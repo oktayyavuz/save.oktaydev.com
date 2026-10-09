@@ -13,12 +13,15 @@ from typing import Any
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse, RedirectResponse
 
-from .. import config, db, downloader, jobs, security, settings
+from .. import config, db, downloader, jobs, security, settings, urlguard
 from ..bot import bot_manager
 from ..ratelimit import limiter
 from ..web import client_ip, render
 
 router = APIRouter(prefix="/admin")
+
+# Last maintenance outputs (kept in memory; too large for the session cookie).
+_logs: dict[str, str] = {}
 
 
 class NotAuthenticated(Exception):
@@ -415,8 +418,12 @@ async def system_page(request: Request):
         "data_dir": str(config.DATA_DIR),
         "jobs": len(jobs.manager.jobs),
         "service": config.RUNNING_AS_SERVICE,
+        "js": await asyncio.to_thread(downloader.js_status),
     }
-    return _page(request, "admin/system.html", {"info": info, "update_log": request.session.pop("update_log", None)})
+    return _page(request, "admin/system.html", {
+        "info": info, "update_log": _logs.pop("update", None), "diag_log": _logs.get("diag"),
+        "diag_url": _logs.get("diag_url", "https://www.youtube.com/watch?v=jNQXAC9IVRw"),
+    })
 
 
 @router.post("/system/update-ytdlp")
@@ -435,9 +442,24 @@ async def update_ytdlp(request: Request):
         out = await asyncio.to_thread(run)
     except (OSError, subprocess.SubprocessError) as exc:
         out = str(exc)
-    request.session["update_log"] = out
+    _logs["update"] = out
     _flash(request, "Güncelleme denendi. Yeni sürümün devreye girmesi için uygulamayı yeniden başlatın.")
     return _redirect("/admin/system")
+
+
+@router.post("/system/diagnose")
+async def system_diagnose(request: Request):
+    current_admin(request)
+    form = await _form(request)
+    url = str(form.get("url", "")).strip()
+    try:
+        url = await asyncio.to_thread(urlguard.normalize, url)
+    except urlguard.InvalidURL:
+        _flash(request, "Geçerli bir URL girin.", "error")
+        return _redirect("/admin/system")
+    _logs["diag_url"] = url
+    _logs["diag"] = await asyncio.to_thread(downloader.diagnose, url)
+    return _redirect("/admin/system#diag")
 
 
 @router.post("/system/restart")
