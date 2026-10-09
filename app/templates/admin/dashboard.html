@@ -1,0 +1,101 @@
+{% extends "admin/base.html" %}
+{% from "admin/_icons.html" import icon %}
+{% block title %}Genel bakış{% endblock %}
+{% block heading %}Genel bakış{% endblock %}
+{% block actions %}
+<form method="post" action="/admin/bot/restart">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <button class="btn btn-ghost btn-sm" type="submit">{{ icon('refresh', 15) }}<span>Botu yeniden başlat</span></button>
+</form>
+{% endblock %}
+{% block content %}
+
+{% if not bot.running %}
+<div class="callout">
+  <div>
+    <strong>Telegram bot çalışmıyor.</strong>
+    {% if bot.error %}<span class="muted">Hata: {{ bot.error }}</span>
+    {% else %}<span class="muted">Bot token'ını girip botu aktif et.</span>{% endif %}
+  </div>
+  <a class="btn btn-primary btn-sm" href="/admin/settings?tab=telegram">Bot ayarları</a>
+</div>
+{% endif %}
+
+<div class="stats">
+  <div class="stat">
+    <span class="stat-label">Bugün indirilen</span>
+    <strong class="stat-value">{{ stats.downloads_today }}</strong>
+    <span class="stat-sub">Web {{ stats.web_today }} · Bot {{ stats.tg_today }}</span>
+  </div>
+  <div class="stat">
+    <span class="stat-label">Bugünkü trafik</span>
+    <strong class="stat-value">{{ stats.bytes_today | size if stats.bytes_today else '0 MB' }}</strong>
+    <span class="stat-sub">{{ stats.errors_today }} hatalı istek</span>
+  </div>
+  <div class="stat">
+    <span class="stat-label">Bot kullanıcıları</span>
+    <strong class="stat-value">{{ stats.users_total }}</strong>
+    <span class="stat-sub">{{ stats.users_active }} aktif (24s)</span>
+  </div>
+  <div class="stat">
+    <span class="stat-label">Toplam indirme</span>
+    <strong class="stat-value">{{ stats.downloads_total }}</strong>
+    <span class="stat-sub" data-active-count>{{ active | length }} aktif iş</span>
+  </div>
+</div>
+
+<div class="grid-2">
+  <section class="card">
+    <header class="card-head">
+      <h2>Son 14 gün</h2>
+      <div class="legend"><span><i class="lg-web"></i>Web</span><span><i class="lg-tg"></i>Telegram</span></div>
+    </header>
+    <div class="chart">
+      {% for d in days %}
+      <div class="bar-col" title="{{ d.label }} — Web {{ d.web }}, Telegram {{ d.tg }}">
+        <div class="bar">
+          <div class="bar-tg" style="height: {{ (d.tg / peak * 100) | round(1) }}%"></div>
+          <div class="bar-web" style="height: {{ (d.web / peak * 100) | round(1) }}%"></div>
+        </div>
+        <span class="bar-label">{{ d.label[:2] }}</span>
+      </div>
+      {% endfor %}
+    </div>
+  </section>
+
+  <section class="card">
+    <header class="card-head"><h2>Platformlar <small class="muted">(30 gün)</small></h2></header>
+    {% if platforms %}
+    {% set pmax = platforms[0]['c'] %}
+    <ul class="hbars">
+      {% for p in platforms %}
+      <li>
+        <span class="hb-name">{{ p['p'] }}</span>
+        <span class="hb-track"><span style="width: {{ (p['c'] / pmax * 100) | round(1) }}%"></span></span>
+        <span class="hb-val">{{ p['c'] }}</span>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p class="empty">Henüz veri yok.</p>
+    {% endif %}
+  </section>
+</div>
+
+<section class="card" id="active-card" {% if not active %}hidden{% endif %}>
+  <header class="card-head"><h2>Şu an indirilenler</h2></header>
+  <ul class="active-list" id="active-list">
+    {% for j in active %}
+    <li><span class="truncate">{{ j.title or j.url }}</span><span class="badge">{{ j.source }}</span><span class="badge badge-{{ j.status }}">{{ j.status }}</span></li>
+    {% endfor %}
+  </ul>
+</section>
+
+<section class="card">
+  <header class="card-head">
+    <h2>Son indirmeler</h2>
+    <a class="link" href="/admin/downloads">Tümü →</a>
+  </header>
+  {% include "admin/_downloads_table.html" with context %}
+</section>
+{% endblock %}

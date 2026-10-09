@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="{{ lang }}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}{{ s.site_name }} — {{ s.site_tagline }}{% endblock %}</title>
+  <meta name="description" content="{{ s.site_description }}">
+  <meta name="theme-color" content="#0b0b12" media="(prefers-color-scheme: dark)">
+  <meta name="theme-color" content="#f6f5fb" media="(prefers-color-scheme: light)">
+  <meta property="og:title" content="{{ s.site_name }} — {{ s.site_tagline }}">
+  <meta property="og:description" content="{{ s.site_description }}">
+  <meta property="og:type" content="website">
+  {% if s.public_base_url %}<meta property="og:url" content="{{ s.public_base_url }}">{% endif %}
+  <link rel="icon" href="/static/img/logo.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/css/app.css?v={{ static_version }}">
+</head>
+<body>
+  {% if s.announcement %}<div class="announce">{{ s.announcement }}</div>{% endif %}
+  <header class="nav">
+    <div class="wrap nav-inner">
+      <a class="brand" href="/">
+        <img src="/static/img/logo.svg" alt="" width="30" height="30">
+        <span>{{ s.site_name }}</span>
+      </a>
+      <nav class="nav-links">
+        <a href="/#how">{{ t('web.nav_how', lang) }}</a>
+        <a href="/#sites">{{ t('web.nav_sites', lang) }}</a>
+        <a href="/#faq">{{ t('web.nav_faq', lang) }}</a>
+      </nav>
+      <div class="nav-actions">
+        <div class="lang-switch" role="group" aria-label="Language">
+          <a href="?lang=tr" class="{{ 'on' if lang == 'tr' }}">TR</a>
+          <a href="?lang=en" class="{{ 'on' if lang == 'en' }}">EN</a>
+        </div>
+        {% if bot and bot.running and bot.username %}
+        <a class="btn btn-tg btn-sm" href="https://t.me/{{ bot.username }}" target="_blank" rel="noopener">
+          <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M21.9 4.3 18.8 19c-.2 1-.9 1.3-1.7.8l-4.7-3.5-2.3 2.2c-.3.3-.5.5-1 .5l.3-4.8 8.8-7.9c.4-.3-.1-.5-.6-.2L6.7 13 2 11.6c-1-.3-1-1 .2-1.5L20.5 3c.9-.3 1.6.2 1.4 1.3Z"/></svg>
+          <span>Bot</span>
+        </a>
+        {% endif %}
+      </div>
+    </div>
+  </header>
+
+  <main>{% block content %}{% endblock %}</main>
+
+  <footer class="footer">
+    <div class="wrap footer-inner">
+      <div class="brand brand-sm">
+        <img src="/static/img/logo.svg" alt="" width="22" height="22">
+        <span>{{ s.site_name }}</span>
+      </div>
+      <p class="muted small">{{ t('web.legal', lang) }}</p>
+      <p class="muted small">© {{ s.site_name }}</p>
+    </div>
+  </footer>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

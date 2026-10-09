@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}{{ t('web.expired_title', lang) }} — {{ s.site_name }}{% endblock %}
+{% block content %}
+<section class="hero hero-short">
+  <div class="hero-glow" aria-hidden="true"></div>
+  <div class="wrap hero-inner">
+    <div class="empty-icon" aria-hidden="true">
+      <svg viewBox="0 0 24 24" width="40" height="40"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" d="M12 7v5l3 2M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/></svg>
+    </div>
+    <h1 class="h1-sm">{{ t('web.expired_title', lang) }}</h1>
+    <p class="lead">{{ t('web.expired_desc', lang) }}</p>
+    <a class="btn btn-primary btn-lg" href="/">{{ t('web.home', lang) }}</a>
+  </div>
+</section>
+{% endblock %}

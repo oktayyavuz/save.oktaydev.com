@@ -1,0 +1,12 @@
+{% if pages > 1 %}
+{% set qs = request.query_params %}
+<nav class="pager">
+  {% if page > 1 %}
+  <a class="btn btn-ghost btn-sm" href="?{% for k, v in qs.items() if k != 'page' %}{{ k }}={{ v | urlencode }}&{% endfor %}page={{ page - 1 }}">← Önceki</a>
+  {% endif %}
+  <span class="muted">{{ page }} / {{ pages }}</span>
+  {% if page < pages %}
+  <a class="btn btn-ghost btn-sm" href="?{% for k, v in qs.items() if k != 'page' %}{{ k }}={{ v | urlencode }}&{% endfor %}page={{ page + 1 }}">Sonraki →</a>
+  {% endif %}
+</nav>
+{% endif %}

@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>{% block title %}Panel{% endblock %} · {{ s.site_name }} Admin</title>
+  <link rel="icon" href="/static/img/logo.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/css/admin.css?v={{ static_version }}">
+</head>
+<body class="{% block body_class %}{% endblock %}">
+{% from "admin/_icons.html" import icon %}
+
+{% block layout %}
+<div class="shell">
+  <aside class="sidebar" id="sidebar">
+    <a class="brand" href="/admin">
+      <img src="/static/img/logo.svg" alt="" width="28" height="28">
+      <span>{{ s.site_name }}</span>
+      <em>admin</em>
+    </a>
+    <nav class="side-nav">
+      {% set links = [
+        ('/admin', 'home', 'Genel bakış'),
+        ('/admin/downloads', 'download', 'İndirmeler'),
+        ('/admin/users', 'users', 'Bot kullanıcıları'),
+        ('/admin/broadcast', 'megaphone', 'Duyuru'),
+        ('/admin/settings', 'settings', 'Ayarlar'),
+        ('/admin/system', 'server', 'Sistem'),
+        ('/admin/account', 'user', 'Hesabım'),
+      ] %}
+      {% for href, ic, label in links %}
+      <a href="{{ href }}" class="{{ 'active' if (path == href or (href != '/admin' and path.startswith(href))) }}">{{ icon(ic) }}<span>{{ label }}</span></a>
+      {% endfor %}
+    </nav>
+    <div class="side-foot">
+      <div class="bot-status {{ 'on' if bot.running else 'off' }}">
+        <span class="dot"></span>
+        <div>
+          <strong>Telegram bot</strong>
+          <small>{% if bot.running %}@{{ bot.username }}{% elif bot.error %}Hata{% else %}Kapalı{% endif %}</small>
+        </div>
+      </div>
+      <a class="side-link" href="/" target="_blank" rel="noopener">{{ icon('external', 16) }}<span>Siteyi aç</span></a>
+      <form method="post" action="/admin/logout">
+        <input type="hidden" name="csrf" value="{{ csrf }}">
+        <button class="side-link" type="submit">{{ icon('logout', 16) }}<span>Çıkış ({{ admin.username }})</span></button>
+      </form>
+    </div>
+  </aside>
+  <div class="backdrop" id="backdrop"></div>
+
+  <div class="main">
+    <header class="topbar">
+      <button class="icon-btn menu-btn" id="menu-btn" aria-label="Menü">{{ icon('menu', 20) }}</button>
+      <h1>{% block heading %}{% endblock %}</h1>
+      <div class="topbar-actions">{% block actions %}{% endblock %}</div>
+    </header>
+    {% if flash %}
+    <div class="flash flash-{{ flash.kind }}" role="status">{{ flash.message }}</div>
+    {% endif %}
+    <div class="content">
+      {% block content %}{% endblock %}
+    </div>
+  </div>
+</div>
+{% endblock %}
+<script src="/static/js/admin.js?v={{ static_version }}" defer></script>
+</body>
+</html>

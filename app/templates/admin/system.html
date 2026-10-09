@@ -1,0 +1,61 @@
+{% extends "admin/base.html" %}
+{% block title %}Sistem{% endblock %}
+{% block heading %}Sistem{% endblock %}
+{% block content %}
+<div class="stats">
+  <div class="stat">
+    <span class="stat-label">yt-dlp</span>
+    <strong class="stat-value stat-sm">{{ info.ytdlp }}</strong>
+    <span class="stat-sub">İndirme motoru</span>
+  </div>
+  <div class="stat">
+    <span class="stat-label">Disk (boş)</span>
+    <strong class="stat-value stat-sm">{{ info.disk_free | size }}</strong>
+    <span class="stat-sub">Toplam {{ info.disk_total | size }}</span>
+  </div>
+  <div class="stat">
+    <span class="stat-label">Geçici dosyalar</span>
+    <strong class="stat-value stat-sm">{{ info.downloads_size | size if info.downloads_size else '0 B' }}</strong>
+    <span class="stat-sub">{{ info.jobs }} iş bellekte</span>
+  </div>
+  <div class="stat">
+    <span class="stat-label">Python</span>
+    <strong class="stat-value stat-sm">{{ info.python }}</strong>
+    <span class="stat-sub mono">{{ info.data_dir }}</span>
+  </div>
+</div>
+
+<div class="grid-2">
+  <section class="card">
+    <header class="card-head"><h2>Bileşenler</h2></header>
+    <ul class="kv">
+      <li><span>ffmpeg</span><span class="{{ 'ok-text' if info.ffmpeg else 'err-text' }}">{{ (info.ffmpeg[:60]) if info.ffmpeg else 'Bulunamadı — birleştirme ve MP3 çalışmaz' }}</span></li>
+      <li><span>Deno (JS runtime)</span><span class="{{ 'ok-text' if info.deno else 'err-text' }}">{{ info.deno if info.deno else 'Bulunamadı — YouTube için gerekli' }}</span></li>
+      <li><span>Telegram bot</span><span class="{{ 'ok-text' if bot.running else 'muted' }}">{{ ('@' ~ bot.username) if bot.running else (bot.error or 'Kapalı') }}</span></li>
+      <li><span>Aktif iş</span><span>{{ active_jobs }}</span></li>
+    </ul>
+  </section>
+
+  <section class="card">
+    <header class="card-head"><h2>Bakım</h2></header>
+    <p class="muted small">Siteler sık sık değişir; indirmeler bozulursa önce yt-dlp'yi güncelle. Güncellemeden sonra uygulamayı yeniden başlat.</p>
+    <div class="row-actions-left">
+      <form method="post" action="/admin/system/update-ytdlp" data-confirm="yt-dlp güncellenecek. Devam?">
+        <input type="hidden" name="csrf" value="{{ csrf }}">
+        <button class="btn btn-primary btn-sm" type="submit">yt-dlp'yi güncelle</button>
+      </form>
+      {% if info.service %}
+      <form method="post" action="/admin/system/restart" data-confirm="Uygulama birkaç saniyeliğine kapanıp açılacak. Devam?">
+        <input type="hidden" name="csrf" value="{{ csrf }}">
+        <button class="btn btn-ghost btn-sm" type="submit">Uygulamayı yeniden başlat</button>
+      </form>
+      {% endif %}
+      <form method="post" action="/admin/system/cleanup">
+        <input type="hidden" name="csrf" value="{{ csrf }}">
+        <button class="btn btn-ghost btn-sm" type="submit">Süresi dolanları temizle</button>
+      </form>
+    </div>
+    {% if update_log %}<pre class="log">{{ update_log }}</pre>{% endif %}
+  </section>
+</div>
+{% endblock %}

@@ -1,0 +1,34 @@
+{% set table_rows = rows if rows is defined else recent %}
+{% if table_rows %}
+<div class="table-wrap">
+  <table class="table">
+    <thead>
+      <tr><th>Başlık</th><th>Platform</th><th>Format</th><th>Kaynak</th><th>Durum</th><th>Boyut</th><th>Tarih</th></tr>
+    </thead>
+    <tbody>
+      {% for r in table_rows %}
+      <tr>
+        <td class="cell-title">
+          <a href="{{ r['url'] }}" target="_blank" rel="noopener noreferrer" title="{{ r['url'] }}">{{ r['title'] or r['url'] }}</a>
+          {% if r['error'] %}<small class="err-text" title="{{ r['error'] }}">{{ r['error'][:120] }}</small>{% endif %}
+        </td>
+        <td>{{ r['platform'] or '—' }}</td>
+        <td><span class="badge">{{ r['preset'] }}</span></td>
+        <td>
+          {% if r['source'] == 'telegram' %}
+          <a class="badge badge-tg" href="/admin/users?q={{ r['requester'] }}">tg · {{ r['requester'] }}</a>
+          {% else %}
+          <span class="badge" title="{{ r['requester'] }}">web</span>
+          {% endif %}
+        </td>
+        <td><span class="badge badge-{{ r['status'] }}">{{ {'done': 'tamam', 'error': 'hata', 'queued': 'sırada', 'downloading': 'iniyor', 'processing': 'işleniyor'}.get(r['status'], r['status']) }}</span></td>
+        <td class="nowrap">{{ r['filesize'] | size if r['filesize'] else '—' }}</td>
+        <td class="nowrap muted">{{ r['created_at'] | dt }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<p class="empty">Kayıt yok.</p>
+{% endif %}

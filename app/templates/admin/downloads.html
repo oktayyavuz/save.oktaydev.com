@@ -1,0 +1,40 @@
+{% extends "admin/base.html" %}
+{% from "admin/_icons.html" import icon %}
+{% block title %}İndirmeler{% endblock %}
+{% block heading %}İndirmeler <small class="muted">{{ total }}</small>{% endblock %}
+{% block content %}
+<section class="card">
+  <form class="filters" method="get">
+    <label class="search">{{ icon('search', 16) }}<input name="q" value="{{ q }}" placeholder="URL, başlık veya kullanıcı ara"></label>
+    <select name="status" onchange="this.form.submit()">
+      <option value="">Tüm durumlar</option>
+      {% for v, l in [('done', 'Tamamlanan'), ('error', 'Hatalı'), ('queued', 'Sırada'), ('downloading', 'İniyor')] %}
+      <option value="{{ v }}" {{ 'selected' if status == v }}>{{ l }}</option>
+      {% endfor %}
+    </select>
+    <select name="source" onchange="this.form.submit()">
+      <option value="">Tüm kaynaklar</option>
+      <option value="web" {{ 'selected' if source == 'web' }}>Web</option>
+      <option value="telegram" {{ 'selected' if source == 'telegram' }}>Telegram</option>
+    </select>
+    <button class="btn btn-ghost btn-sm" type="submit">Filtrele</button>
+  </form>
+  {% include "admin/_downloads_table.html" with context %}
+  {% include "admin/_pager.html" with context %}
+</section>
+
+<section class="card card-danger">
+  <header class="card-head"><h2>Geçmişi temizle</h2></header>
+  <form method="post" action="/admin/downloads/clear" class="inline-form" data-confirm="Seçilen günden eski kayıtlar silinecek. Emin misin?">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <span>Şundan eski kayıtları sil:</span>
+    <select name="days">
+      <option value="7">7 gün</option>
+      <option value="30" selected>30 gün</option>
+      <option value="90">90 gün</option>
+      <option value="0">Tümü</option>
+    </select>
+    <button class="btn btn-danger btn-sm" type="submit">Sil</button>
+  </form>
+</section>
+{% endblock %}

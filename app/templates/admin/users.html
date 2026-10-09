@@ -1,0 +1,53 @@
+{% extends "admin/base.html" %}
+{% from "admin/_icons.html" import icon %}
+{% block title %}Bot kullanıcıları{% endblock %}
+{% block heading %}Bot kullanıcıları <small class="muted">{{ total }}</small>{% endblock %}
+{% block content %}
+<section class="card">
+  <form class="filters" method="get">
+    <label class="search">{{ icon('search', 16) }}<input name="q" value="{{ q }}" placeholder="ID, kullanıcı adı veya isim"></label>
+    <label class="check"><input type="checkbox" name="banned" value="1" {{ 'checked' if banned == '1' }} onchange="this.form.submit()"> Yalnızca engelliler</label>
+    <button class="btn btn-ghost btn-sm" type="submit">Ara</button>
+  </form>
+  {% if rows %}
+  <div class="table-wrap">
+    <table class="table">
+      <thead><tr><th>Kullanıcı</th><th>ID</th><th>Dil</th><th>İndirme</th><th>Katılım</th><th>Son görülme</th><th></th></tr></thead>
+      <tbody>
+        {% for u in rows %}
+        <tr class="{{ 'row-banned' if u['banned'] }}">
+          <td>
+            <div class="user-cell">
+              <span class="avatar">{{ (u['first_name'] or u['username'] or '?')[:1] | upper }}</span>
+              <div>
+                <strong>{{ u['first_name'] or '—' }}</strong>
+                {% if u['username'] %}<a class="muted small" href="https://t.me/{{ u['username'] }}" target="_blank" rel="noopener">@{{ u['username'] }}</a>{% endif %}
+              </div>
+            </div>
+          </td>
+          <td class="mono">{{ u['id'] }}</td>
+          <td>{{ u['language'] or '—' }}</td>
+          <td>{{ u['downloads'] }}</td>
+          <td class="nowrap muted">{{ u['created_at'] | dt('%d.%m.%Y') }}</td>
+          <td class="nowrap muted">{{ u['last_seen'] | dt }}</td>
+          <td class="right">
+            <form method="post" action="/admin/users/{{ u['id'] }}/ban">
+              <input type="hidden" name="csrf" value="{{ csrf }}">
+              {% if u['banned'] %}
+              <button class="btn btn-ghost btn-xs" type="submit">Engeli kaldır</button>
+              {% else %}
+              <button class="btn btn-danger-ghost btn-xs" type="submit">Engelle</button>
+              {% endif %}
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% include "admin/_pager.html" with context %}
+  {% else %}
+  <p class="empty">Henüz kullanıcı yok. Bot çalıştığında kullanıcılar burada listelenir.</p>
+  {% endif %}
+</section>
+{% endblock %}

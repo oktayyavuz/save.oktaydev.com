@@ -1,0 +1,23 @@
+{% extends "admin/auth_base.html" %}
+{% block title %}Kurulum{% endblock %}
+{% block auth %}
+<h1 class="auth-title">İlk kurulum</h1>
+<p class="muted">Yönetici hesabını oluştur. Bu ekran yalnızca bir kez görünür.</p>
+{% if error %}<div class="flash flash-error">{{ error }}</div>{% endif %}
+<form method="post" action="/admin/setup" class="stack">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <label class="field">
+    <span>Kullanıcı adı</span>
+    <input name="username" autocomplete="username" minlength="3" required autofocus>
+  </label>
+  <label class="field">
+    <span>Şifre <em>(en az 8 karakter)</em></span>
+    <input name="password" type="password" autocomplete="new-password" minlength="8" required>
+  </label>
+  <label class="field">
+    <span>Şifre tekrar</span>
+    <input name="password2" type="password" autocomplete="new-password" minlength="8" required>
+  </label>
+  <button class="btn btn-primary btn-block" type="submit">Hesabı oluştur</button>
+</form>
+{% endblock %}
